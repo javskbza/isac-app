@@ -110,7 +110,7 @@ That's it. No core changes required.
 
 ## How to Add a New Agent
 
-Agents are Python functions with the signature `(state: AgentState) -> AgentState`.
+Agents are plain Python functions with the signature `(state: AgentState) -> AgentState`. The pipeline runs them sequentially in `orchestrator.py` — no framework required.
 
 ### 1. Create the agent
 
@@ -121,27 +121,36 @@ from datetime import datetime, timezone
 
 def my_agent(state: AgentState) -> AgentState:
     logs = list(state.get("logs", []))
-    # ... do work ...
-    logs.append({
+    errors = dict(state.get("errors", {}))
+    log_entry = {
         "agent_name": "MyAgent",
-        "status": "success",
         "started_at": datetime.now(tz=timezone.utc).isoformat(),
-        "completed_at": datetime.now(tz=timezone.utc).isoformat(),
-        "output_summary": "Did something useful",
-    })
-    return {**state, "my_output": {...}, "logs": logs}
+        "status": "running",
+    }
+    try:
+        # ... do work, read from state, compute results ...
+        log_entry.update({"status": "success", "output_summary": "Did something useful"})
+        logs.append(log_entry)
+        return {**state, "my_output": {...}, "logs": logs, "errors": errors}
+    except Exception as exc:
+        log_entry.update({"status": "error", "error_message": str(exc)})
+        logs.append(log_entry)
+        errors["MyAgent"] = str(exc)
+        return {**state, "logs": logs, "errors": errors}
 ```
 
-### 2. Wire it into the graph
+### 2. Wire it into the pipeline
 
 ```python
 # In platform/backend/app/agents/orchestrator.py
 from app.agents.my_agent import my_agent
 
-# In build_agent_graph():
-graph.add_node("my_agent", my_agent)
-graph.add_edge("pattern", "my_agent")   # insert at right position
-graph.add_edge("my_agent", "insight")
+def run_pipeline(source_id, source_type, source_config):
+    # ...existing agents...
+    state = pattern_agent(state)
+    state = my_agent(state)      # insert at the right position
+    state = insight_agent(state)
+    # ...
 ```
 
 ---
@@ -252,14 +261,17 @@ pytest tests/ -v
 React Frontend (port 3000)
     ↓ REST API
 FastAPI Backend (port 8000)
-    ↓                  ↓
-Celery + Redis    PostgreSQL
-(Task Queue)     (Metadata Store)
+    ↓ background task           ↓
+Agent Pipeline           PostgreSQL
+(sequential, in-process) (Metadata Store)
     ↓
-LangGraph Agent Pipeline:
   IngestAgent → ProfileAgent → TrendAgent → ForecastAgent
   → AnomalyAgent → PatternAgent → InsightAgent → NotificationAgent
+    ↓
+  persist.py writes results to DB (profiles, insights, notifications)
 ```
+
+The pipeline runs as a FastAPI `BackgroundTask` in the same process — no separate worker or message broker is needed for the agent pipeline. Redis and Celery remain in the stack for future use but are not on the critical path.
 
 ---
 
