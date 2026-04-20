@@ -209,6 +209,33 @@ fly deploy -a platform-frontend
 
 ---
 
+## Troubleshooting
+
+### `database "platform" does not exist`
+
+**Cause:** PostgreSQL initializes the data directory only once. If the `postgres_data` Docker volume was created before `POSTGRES_DB` was set in `.env`, Postgres created a default database named after the user (`platform`) instead of the intended database (`platform_db`). Subsequent runs reuse the existing volume without re-initializing, so `platform_db` never gets created.
+
+**Fix — reset the volume (destroys all local data):**
+
+```bash
+cd platform
+docker compose down -v          # stops containers and deletes volumes
+docker compose up --build       # reinitializes Postgres with correct POSTGRES_DB
+docker compose exec backend alembic upgrade head
+```
+
+**Fix — preserve existing data (no data loss):**
+
+```bash
+docker compose exec db psql -U platform -c "CREATE DATABASE platform_db;"
+docker compose restart backend celery_worker
+docker compose exec backend alembic upgrade head
+```
+
+**Prevention:** Always run `cp .env.example .env` and configure `.env` _before_ the first `docker compose up`. If you change `POSTGRES_DB` after the volume already exists, run `docker compose down -v` first.
+
+---
+
 ## Running Tests
 
 ```bash
