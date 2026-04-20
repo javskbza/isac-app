@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Bell } from 'lucide-react'
 import api from '@/lib/api'
@@ -26,11 +26,13 @@ export default function NotificationCenter() {
   const queryClient = useQueryClient()
   const { setNotifications, markRead: markReadStore } = useNotificationStore()
 
-  const { data: notifications = [] } = useQuery<Notification[]>({
+  const { data: rawNotifications } = useQuery<Notification[]>({
     queryKey: ['notifications'],
     queryFn: async () => (await api.get('/notifications')).data,
     refetchInterval: 15_000, // poll every 15s
   })
+
+  const notifications = useMemo(() => rawNotifications ?? [], [rawNotifications])
 
   useEffect(() => {
     setNotifications(notifications)

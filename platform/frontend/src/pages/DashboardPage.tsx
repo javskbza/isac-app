@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import GridLayout, { Layout } from 'react-grid-layout'
+import GridLayout, { WidthProvider, Layout } from 'react-grid-layout'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area,
@@ -10,17 +10,19 @@ import api from '@/lib/api'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 
+const ResponsiveGrid = WidthProvider(GridLayout)
+
 interface Source { id: string; name: string; status: string }
 interface Insight { id: string; type: string; title: string; body: string; data: any; created_at: string }
 interface Profile { statistics: Record<string, any>; null_rates: Record<string, number>; total_rows: number }
 
 const DEFAULT_LAYOUT: Layout[] = [
-  { i: 'kpi', x: 0, y: 0, w: 3, h: 2 },
-  { i: 'trend', x: 3, y: 0, w: 5, h: 4 },
-  { i: 'anomaly', x: 8, y: 0, w: 4, h: 2 },
-  { i: 'forecast', x: 0, y: 2, w: 6, h: 4 },
-  { i: 'profile', x: 6, y: 4, w: 6, h: 3 },
-  { i: 'insights', x: 0, y: 6, w: 12, h: 4 },
+  { i: 'kpi',      x: 0, y: 0,  w: 3,  h: 2 },
+  { i: 'trend',    x: 3, y: 0,  w: 5,  h: 4 },
+  { i: 'anomaly',  x: 8, y: 0,  w: 4,  h: 2 },
+  { i: 'forecast', x: 0, y: 4,  w: 6,  h: 4 },
+  { i: 'profile',  x: 6, y: 4,  w: 6,  h: 3 },
+  { i: 'insights', x: 0, y: 8,  w: 12, h: 4 },
 ]
 
 function KPICard({ profile, sourceName }: { profile: Profile | null; sourceName: string }) {
@@ -30,7 +32,10 @@ function KPICard({ profile, sourceName }: { profile: Profile | null; sourceName:
       <CardContent>
         {profile ? (
           <div className="grid grid-cols-2 gap-2">
-            <div><p className="text-2xl font-bold">{profile.total_rows?.toLocaleString()}</p><p className="text-xs text-muted-foreground">Rows</p></div>
+            <div>
+              <p className="text-2xl font-bold">{profile.total_rows?.toLocaleString()}</p>
+              <p className="text-xs text-muted-foreground">Rows</p>
+            </div>
             <div>
               <p className="text-2xl font-bold">
                 {Object.values(profile.null_rates || {}).length > 0
@@ -50,20 +55,15 @@ function KPICard({ profile, sourceName }: { profile: Profile | null; sourceName:
 
 function TrendWidget({ insights }: { insights: Insight[] }) {
   const trendInsights = insights.filter((i) => i.type === 'trend')
-  const mockData = Array.from({ length: 10 }, (_, i) => ({ name: `T${i + 1}`, value: Math.random() * 100 + i * 5 }))
-
+  const mockData = Array.from({ length: 10 }, (_, i) => ({ name: `T${i + 1}`, value: 50 + i * 5 }))
   return (
     <Card className="h-full">
       <CardHeader className="pb-2"><CardTitle className="text-sm">Trend Overview</CardTitle></CardHeader>
       <CardContent className="h-[calc(100%-60px)]">
-        {trendInsights.length > 0 ? (
-          <div className="space-y-1 mb-2">
-            {trendInsights.slice(0, 2).map((t) => (
-              <p key={t.id} className="text-xs text-muted-foreground">{t.title}</p>
-            ))}
-          </div>
-        ) : null}
-        <ResponsiveContainer width="100%" height={120}>
+        {trendInsights.slice(0, 2).map((t) => (
+          <p key={t.id} className="text-xs text-muted-foreground mb-1">{t.title}</p>
+        ))}
+        <ResponsiveContainer width="100%" height={100}>
           <LineChart data={mockData}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="name" tick={{ fontSize: 10 }} />
@@ -86,14 +86,11 @@ function AnomalyWidget({ insights }: { insights: Insight[] }) {
         {anomalies.length === 0 ? (
           <p className="text-xs text-muted-foreground">No anomalies detected</p>
         ) : (
-          <div className="space-y-2">
-            {anomalies.map((a) => (
-              <div key={a.id} className="rounded bg-red-50 p-2">
-                <p className="text-xs font-medium text-red-800">{a.title}</p>
-                <p className="text-xs text-red-600">{a.body.slice(0, 80)}...</p>
-              </div>
-            ))}
-          </div>
+          anomalies.map((a) => (
+            <div key={a.id} className="rounded bg-red-50 p-2 mb-1">
+              <p className="text-xs font-medium text-red-800">{a.title}</p>
+            </div>
+          ))
         )}
       </CardContent>
     </Card>
@@ -102,14 +99,14 @@ function AnomalyWidget({ insights }: { insights: Insight[] }) {
 
 function ForecastWidget({ insights }: { insights: Insight[] }) {
   const forecasts = insights.filter((i) => i.type === 'forecast')
-  const forecastData = forecasts[0]?.data?.forecast?.slice(0, 7) ?? Array.from({ length: 7 }, (_, i) => ({ ds: `D${i + 1}`, yhat: Math.random() * 50 + 100 }))
-
+  const data = forecasts[0]?.data?.forecast?.slice(0, 7)
+    ?? Array.from({ length: 7 }, (_, i) => ({ ds: `D${i + 1}`, yhat: 100 + i * 3 }))
   return (
     <Card className="h-full">
       <CardHeader className="pb-2"><CardTitle className="text-sm">Forecast</CardTitle></CardHeader>
       <CardContent className="h-[calc(100%-60px)]">
-        <ResponsiveContainer width="100%" height={140}>
-          <AreaChart data={forecastData}>
+        <ResponsiveContainer width="100%" height={120}>
+          <AreaChart data={data}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="ds" tick={{ fontSize: 9 }} tickFormatter={(v) => String(v).slice(0, 5)} />
             <YAxis tick={{ fontSize: 10 }} />
@@ -123,7 +120,14 @@ function ForecastWidget({ insights }: { insights: Insight[] }) {
 }
 
 function ProfileSummaryWidget({ profile }: { profile: Profile | null }) {
-  if (!profile) return <Card className="h-full"><CardContent className="pt-6"><p className="text-sm text-muted-foreground">No profile data yet.</p></CardContent></Card>
+  if (!profile) {
+    return (
+      <Card className="h-full">
+        <CardHeader className="pb-2"><CardTitle className="text-sm">Data Profile</CardTitle></CardHeader>
+        <CardContent><p className="text-sm text-muted-foreground">No profile data yet.</p></CardContent>
+      </Card>
+    )
+  }
   const cols = Object.entries(profile.statistics || {}).slice(0, 5)
   return (
     <Card className="h-full">
@@ -163,7 +167,6 @@ function InsightFeed({ insights }: { insights: Insight[] }) {
                   <div>
                     <p className="text-sm font-medium">{insight.title}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{insight.body}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{new Date(insight.created_at).toLocaleString()}</p>
                   </div>
                 </div>
               </div>
@@ -178,18 +181,6 @@ function InsightFeed({ insights }: { insights: Insight[] }) {
 export default function DashboardPage() {
   const [layout, setLayout] = useState<Layout[]>(DEFAULT_LAYOUT)
   const [selectedSource, setSelectedSource] = useState<string | null>(null)
-  const [gridWidth, setGridWidth] = useState(1200)
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const update = () => {
-      if (containerRef.current) setGridWidth(containerRef.current.offsetWidth)
-    }
-    update()
-    const ro = new ResizeObserver(update)
-    if (containerRef.current) ro.observe(containerRef.current)
-    return () => ro.disconnect()
-  }, [])
 
   const { data: sources = [] } = useQuery<Source[]>({
     queryKey: ['sources'],
@@ -212,20 +203,19 @@ export default function DashboardPage() {
   })
 
   const sourceName = sources.find((s) => s.id === activeSource)?.name ?? 'No source'
-
   const handleLayoutChange = useCallback((newLayout: Layout[]) => setLayout(newLayout), [])
 
   const WIDGET_MAP: Record<string, React.ReactNode> = {
-    kpi: <KPICard profile={profile ?? null} sourceName={sourceName} />,
-    trend: <TrendWidget insights={insights} />,
-    anomaly: <AnomalyWidget insights={insights} />,
+    kpi:      <KPICard profile={profile ?? null} sourceName={sourceName} />,
+    trend:    <TrendWidget insights={insights} />,
+    anomaly:  <AnomalyWidget insights={insights} />,
     forecast: <ForecastWidget insights={insights} />,
-    profile: <ProfileSummaryWidget profile={profile ?? null} />,
+    profile:  <ProfileSummaryWidget profile={profile ?? null} />,
     insights: <InsightFeed insights={insights} />,
   }
 
   return (
-    <div className="p-6" ref={containerRef}>
+    <div className="p-6">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-3xl font-bold">Dashboard</h1>
         {sources.length > 0 && (
@@ -239,20 +229,20 @@ export default function DashboardPage() {
         )}
       </div>
 
-      <GridLayout
-        className="layout"
+      <ResponsiveGrid
         layout={layout}
         cols={12}
         rowHeight={80}
-        width={gridWidth}
         onLayoutChange={handleLayoutChange}
+        isDraggable
+        isResizable
       >
         {layout.map((item) => (
           <div key={item.i}>
             {WIDGET_MAP[item.i] ?? null}
           </div>
         ))}
-      </GridLayout>
+      </ResponsiveGrid>
     </div>
   )
 }

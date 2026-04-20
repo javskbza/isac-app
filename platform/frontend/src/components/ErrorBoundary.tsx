@@ -10,22 +10,27 @@ export default class ErrorBoundary extends Component<Props, State> {
     return { error }
   }
 
+  componentDidCatch(error: Error, info: { componentStack: string }) {
+    // Plain DOM write so it's visible even if React styles fail
+    console.error('[ErrorBoundary]', error, info.componentStack)
+  }
+
   render() {
     if (this.state.error) {
       return (
-        <div className="flex min-h-screen items-center justify-center p-8">
-          <div className="max-w-lg rounded-lg border border-destructive bg-card p-6">
-            <h2 className="mb-2 text-lg font-semibold text-destructive">Something went wrong</h2>
-            <pre className="overflow-auto rounded bg-muted p-3 text-xs text-muted-foreground">
-              {this.state.error.message}
-            </pre>
-            <button
-              className="mt-4 rounded bg-primary px-4 py-2 text-sm text-primary-foreground"
-              onClick={() => this.setState({ error: null })}
-            >
-              Try again
-            </button>
-          </div>
+        <div style={{ padding: 32, fontFamily: 'monospace', background: '#fff1f2', minHeight: '100vh' }}>
+          <h2 style={{ color: '#b91c1c', marginBottom: 8 }}>Render error</h2>
+          <pre style={{ background: '#fee2e2', padding: 16, borderRadius: 8, whiteSpace: 'pre-wrap', fontSize: 13, color: '#7f1d1d' }}>
+            {this.state.error.message}
+            {'\n\n'}
+            {this.state.error.stack}
+          </pre>
+          <button
+            style={{ marginTop: 16, padding: '8px 16px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}
+            onClick={() => this.setState({ error: null })}
+          >
+            Dismiss
+          </button>
         </div>
       )
     }

@@ -38,13 +38,18 @@ function FileUploadForm({ onSuccess }: { onSuccess: () => void }) {
   const mutation = useMutation({
     mutationFn: async () => {
       if (!file) throw new Error('No file selected')
+      // Step 1: upload the file to the server
       const formData = new FormData()
       formData.append('file', file)
-      // Upload file, then create source with file path
+      const uploadRes = await api.post('/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      const { file_path } = uploadRes.data
+      // Step 2: create the source with the server-side file path
       const res = await api.post('/sources', {
         name: name || file.name,
         source_type: 'file',
-        config: { file_name: file.name, file_size: file.size },
+        config: { file_path },
       })
       return res.data
     },
