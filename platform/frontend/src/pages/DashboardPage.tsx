@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import GridLayout, { Layout } from 'react-grid-layout'
 import {
@@ -178,6 +178,18 @@ function InsightFeed({ insights }: { insights: Insight[] }) {
 export default function DashboardPage() {
   const [layout, setLayout] = useState<Layout[]>(DEFAULT_LAYOUT)
   const [selectedSource, setSelectedSource] = useState<string | null>(null)
+  const [gridWidth, setGridWidth] = useState(1200)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const update = () => {
+      if (containerRef.current) setGridWidth(containerRef.current.offsetWidth)
+    }
+    update()
+    const ro = new ResizeObserver(update)
+    if (containerRef.current) ro.observe(containerRef.current)
+    return () => ro.disconnect()
+  }, [])
 
   const { data: sources = [] } = useQuery<Source[]>({
     queryKey: ['sources'],
@@ -213,7 +225,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-6" ref={containerRef}>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-3xl font-bold">Dashboard</h1>
         {sources.length > 0 && (
@@ -232,9 +244,8 @@ export default function DashboardPage() {
         layout={layout}
         cols={12}
         rowHeight={80}
-        width={1200}
+        width={gridWidth}
         onLayoutChange={handleLayoutChange}
-        draggableHandle=".card-drag-handle"
       >
         {layout.map((item) => (
           <div key={item.i}>

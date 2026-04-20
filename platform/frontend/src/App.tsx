@@ -5,13 +5,16 @@ import DashboardPage from './pages/DashboardPage'
 import SourcesPage from './pages/SourcesPage'
 import AgentLogPage from './pages/AgentLogPage'
 import Navbar from './components/Navbar'
+import ErrorBoundary from './components/ErrorBoundary'
 import { useAuthStore } from './store/authStore'
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <main>{children}</main>
+      <main>
+        <ErrorBoundary>{children}</ErrorBoundary>
+      </main>
     </div>
   )
 }
