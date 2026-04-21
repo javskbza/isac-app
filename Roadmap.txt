@@ -1,0 +1,14 @@
+V2: 
+1. Enhanced Dashboard Experience with redesigned cards 
+2. Fine tuning of agent behavior
+3. User management from UI
+
+V3: 
+  1.	Files are not persisted in the application’s database after a session. 
+	2.	At session start, look for changes at the data source and trigger profile refreshes. 
+	3.	Dark Mode option for all UI
+	4.	Colorblind mode for all UI
+	5.	Preserve the dashboard layout for a user. 
+	6.	Provide details on why a file upload is pending, as well as the different statuses. 
+
+V4: full agent observability 
