@@ -82,12 +82,15 @@ async def create_source(
     source_type = body.source_type.value
     source_config = body.config
 
-    def _run_pipeline():
+    async def _run_pipeline():
         from app.agents import run_pipeline
         from app.agents.persist import persist_pipeline_results
         try:
-            final_state = run_pipeline(source_id, source_type, source_config)
-            asyncio.run(persist_pipeline_results(final_state))
+            loop = asyncio.get_event_loop()
+            final_state = await loop.run_in_executor(
+                None, lambda: run_pipeline(source_id, source_type, source_config)
+            )
+            await persist_pipeline_results(final_state)
         except Exception:
             import logging
             logging.getLogger(__name__).exception("Pipeline failed for source %s", source_id)

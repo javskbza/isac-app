@@ -8,6 +8,7 @@ from app.models.data_source import DataSource, SourceStatus
 from app.models.profile import Profile
 from app.models.insight import Insight, InsightType
 from app.models.notification import Notification
+from app.models.agent_log import AgentLog, AgentStatus
 from app.models.user import User
 from app.agents.state import AgentState
 
@@ -80,6 +81,22 @@ async def persist_pipeline_results(state: AgentState) -> None:
                         title=insight.title,
                         is_read=False,
                     ))
+
+            # Persist agent logs
+            from datetime import datetime, timezone
+            for entry in state.get("logs", []):
+                status_val = entry.get("status", "success")
+                raw_started = entry.get("started_at")
+                raw_completed = entry.get("completed_at")
+                db.add(AgentLog(
+                    data_source_id=source.id,
+                    agent_name=entry.get("agent_name", "unknown"),
+                    status=AgentStatus.success if status_val == "success" else AgentStatus.error,
+                    output_summary=entry.get("output_summary"),
+                    error_message=entry.get("error_message"),
+                    started_at=datetime.fromisoformat(raw_started).replace(tzinfo=None) if raw_started else datetime.utcnow(),
+                    completed_at=datetime.fromisoformat(raw_completed).replace(tzinfo=None) if raw_completed else None,
+                ))
 
             # Mark source active
             source.status = SourceStatus.active
