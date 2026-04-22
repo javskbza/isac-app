@@ -9,7 +9,7 @@ from app.models.profile import Profile
 from app.models.insight import Insight, InsightType
 from app.models.notification import Notification
 from app.models.agent_log import AgentLog, AgentStatus
-from app.models.user import User
+from app.models.user import User, UserStatus
 from app.agents.state import AgentState
 
 logger = logging.getLogger(__name__)
@@ -47,6 +47,9 @@ async def persist_pipeline_results(state: AgentState) -> None:
                     statistics=profile_data.get("statistics", {}),
                     null_rates=profile_data.get("null_rates", {}),
                     distributions=profile_data.get("distributions", {}),
+                    total_rows=profile_data.get("total_rows"),
+                    total_columns=profile_data.get("total_columns"),
+                    zscore_anomalies=state.get("zscore_anomalies", []),
                 )
                 db.add(profile)
                 await db.flush()
@@ -68,7 +71,7 @@ async def persist_pipeline_results(state: AgentState) -> None:
             await db.flush()
 
             # Persist notifications for all active users (notifiable insight types only)
-            users_result = await db.execute(select(User).where(User.is_active == True))
+            users_result = await db.execute(select(User).where(User.status == UserStatus.active))
             users = users_result.scalars().all()
 
             for insight in saved_insights:

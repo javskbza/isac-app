@@ -1,6 +1,8 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
+import { useThemeStore } from '@/store/themeStore'
 import NotificationCenter from './NotificationCenter'
+import ThemeToggle from './ThemeToggle'
 import { Button } from '@/components/ui/button'
 
 export default function Navbar() {
@@ -19,8 +21,14 @@ export default function Navbar() {
         <Link to="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">Dashboard</Link>
         <Link to="/sources" className="text-sm text-muted-foreground hover:text-foreground">Sources</Link>
         <Link to="/agents" className="text-sm text-muted-foreground hover:text-foreground">Agent Log</Link>
+        {user?.role === 'admin' && (
+          <Link to="/account-management" className="text-sm text-muted-foreground hover:text-foreground">
+            Account Management
+          </Link>
+        )}
       </div>
       <div className="flex items-center gap-3">
+        <ThemeToggle />
         <NotificationCenter />
         <span className="text-sm text-muted-foreground">{user?.email}</span>
         <Button variant="outline" size="sm" onClick={handleLogout}>Logout</Button>

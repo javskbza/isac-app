@@ -1,104 +1,37 @@
-import { useState, useCallback } from 'react'
+import { useEffect, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import GridLayout, { WidthProvider, Layout } from 'react-grid-layout'
+import GridLayout, { WidthProvider } from 'react-grid-layout'
+import type { Layout } from 'react-grid-layout'
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  AreaChart, Area,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
+import { Badge } from '@/components/ui/badge'
+import DataProfileCard from '@/components/cards/DataProfileCard'
+import ProfileDetailsCard from '@/components/cards/ProfileDetailsCard'
+import DescriptiveStatsCard from '@/components/cards/DescriptiveStatsCard'
+import TrendAnalysisCard from '@/components/cards/TrendAnalysisCard'
+import AnomalyDetectionCard from '@/components/cards/AnomalyDetectionCard'
+import { useDashboardStore } from '@/store/dashboardStore'
+import { useAuthStore } from '@/store/authStore'
+import { useChartColors } from '@/hooks/useChartColors'
 import api from '@/lib/api'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 
 const ResponsiveGrid = WidthProvider(GridLayout)
 
-interface Source { id: string; name: string; status: string }
+interface Source { id: string; name: string; status: string; is_active: boolean }
 interface Insight { id: string; type: string; title: string; body: string; data: any; created_at: string }
-interface Profile { statistics: Record<string, any>; null_rates: Record<string, number>; total_rows: number }
 
-const DEFAULT_LAYOUT: Layout[] = [
-  { i: 'kpi',      x: 0, y: 0,  w: 3,  h: 2 },
-  { i: 'trend',    x: 3, y: 0,  w: 5,  h: 4 },
-  { i: 'anomaly',  x: 8, y: 0,  w: 4,  h: 2 },
-  { i: 'forecast', x: 0, y: 4,  w: 6,  h: 4 },
-  { i: 'profile',  x: 6, y: 4,  w: 6,  h: 3 },
-  { i: 'insights', x: 0, y: 8,  w: 12, h: 4 },
-]
-
-function KPICard({ profile, sourceName }: { profile: Profile | null; sourceName: string }) {
-  return (
-    <Card className="h-full">
-      <CardHeader className="pb-2"><CardTitle className="text-sm">KPI — {sourceName}</CardTitle></CardHeader>
-      <CardContent>
-        {profile ? (
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <p className="text-2xl font-bold">{profile.total_rows?.toLocaleString()}</p>
-              <p className="text-xs text-muted-foreground">Rows</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold">
-                {Object.values(profile.null_rates || {}).length > 0
-                  ? `${(Object.values(profile.null_rates).reduce((a, b) => a + b, 0) / Object.values(profile.null_rates).length * 100).toFixed(1)}%`
-                  : 'N/A'}
-              </p>
-              <p className="text-xs text-muted-foreground">Avg Null Rate</p>
-            </div>
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">No profile yet</p>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-function TrendWidget({ insights }: { insights: Insight[] }) {
-  const trendInsights = insights.filter((i) => i.type === 'trend')
-  const mockData = Array.from({ length: 10 }, (_, i) => ({ name: `T${i + 1}`, value: 50 + i * 5 }))
-  return (
-    <Card className="h-full">
-      <CardHeader className="pb-2"><CardTitle className="text-sm">Trend Overview</CardTitle></CardHeader>
-      <CardContent className="h-[calc(100%-60px)]">
-        {trendInsights.slice(0, 2).map((t) => (
-          <p key={t.id} className="text-xs text-muted-foreground mb-1">{t.title}</p>
-        ))}
-        <ResponsiveContainer width="100%" height={100}>
-          <LineChart data={mockData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-            <YAxis tick={{ fontSize: 10 }} />
-            <Tooltip />
-            <Line type="monotone" dataKey="value" stroke="#3b82f6" dot={false} />
-          </LineChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
-  )
-}
-
-function AnomalyWidget({ insights }: { insights: Insight[] }) {
-  const anomalies = insights.filter((i) => i.type === 'anomaly')
-  return (
-    <Card className="h-full border-red-200">
-      <CardHeader className="pb-2"><CardTitle className="text-sm text-red-700">Anomaly Alerts</CardTitle></CardHeader>
-      <CardContent>
-        {anomalies.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No anomalies detected</p>
-        ) : (
-          anomalies.map((a) => (
-            <div key={a.id} className="rounded bg-red-50 p-2 mb-1">
-              <p className="text-xs font-medium text-red-800">{a.title}</p>
-            </div>
-          ))
-        )}
-      </CardContent>
-    </Card>
-  )
-}
+// ---------------------------------------------------------------------------
+// Unchanged v1 widgets (forecast + insight feed)
+// ---------------------------------------------------------------------------
 
 function ForecastWidget({ insights }: { insights: Insight[] }) {
-  const forecasts = insights.filter((i) => i.type === 'forecast')
+  const colors = useChartColors()
+  const forecasts = insights.filter(i => i.type === 'forecast')
   const data = forecasts[0]?.data?.forecast?.slice(0, 7)
     ?? Array.from({ length: 7 }, (_, i) => ({ ds: `D${i + 1}`, yhat: 100 + i * 3 }))
   return (
@@ -107,11 +40,11 @@ function ForecastWidget({ insights }: { insights: Insight[] }) {
       <CardContent className="h-[calc(100%-60px)]">
         <ResponsiveContainer width="100%" height={120}>
           <AreaChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="ds" tick={{ fontSize: 9 }} tickFormatter={(v) => String(v).slice(0, 5)} />
+            <CartesianGrid strokeDasharray="3 3" stroke={colors.gridLine} />
+            <XAxis dataKey="ds" tick={{ fontSize: 9 }} tickFormatter={v => String(v).slice(0, 5)} />
             <YAxis tick={{ fontSize: 10 }} />
-            <Tooltip />
-            <Area type="monotone" dataKey="yhat" stroke="#8b5cf6" fill="#ede9fe" />
+            <Tooltip contentStyle={{ backgroundColor: 'var(--background)', border: '1px solid var(--border)' }} />
+            <Area type="monotone" dataKey="yhat" stroke={colors.kde} fill={colors.kde} fillOpacity={0.2} />
           </AreaChart>
         </ResponsiveContainer>
       </CardContent>
@@ -119,39 +52,10 @@ function ForecastWidget({ insights }: { insights: Insight[] }) {
   )
 }
 
-function ProfileSummaryWidget({ profile }: { profile: Profile | null }) {
-  if (!profile) {
-    return (
-      <Card className="h-full">
-        <CardHeader className="pb-2"><CardTitle className="text-sm">Data Profile</CardTitle></CardHeader>
-        <CardContent><p className="text-sm text-muted-foreground">No profile data yet.</p></CardContent>
-      </Card>
-    )
-  }
-  const cols = Object.entries(profile.statistics || {}).slice(0, 5)
-  return (
-    <Card className="h-full">
-      <CardHeader className="pb-2"><CardTitle className="text-sm">Data Profile Summary</CardTitle></CardHeader>
-      <CardContent>
-        <table className="w-full text-xs">
-          <thead><tr className="border-b"><th className="text-left pb-1">Column</th><th className="text-right pb-1">Null%</th><th className="text-right pb-1">Cardinality</th></tr></thead>
-          <tbody>
-            {cols.map(([col, stats]) => (
-              <tr key={col} className="border-b last:border-0">
-                <td className="py-1 truncate max-w-[100px]">{col}</td>
-                <td className="text-right py-1">{((profile.null_rates?.[col] ?? 0) * 100).toFixed(1)}%</td>
-                <td className="text-right py-1">{(stats as any).cardinality ?? '—'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </CardContent>
-    </Card>
-  )
-}
-
 function InsightFeed({ insights }: { insights: Insight[] }) {
-  const TYPE_ICONS: Record<string, string> = { anomaly: '🚨', trend: '📈', forecast: '🔮', pattern: '🔁', summary: '📋' }
+  const TYPE_ICONS: Record<string, string> = {
+    anomaly: '🚨', trend: '📈', forecast: '🔮', pattern: '🔁', summary: '📋',
+  }
   return (
     <Card className="h-full">
       <CardHeader className="pb-2"><CardTitle className="text-sm">Insight Feed</CardTitle></CardHeader>
@@ -160,8 +64,8 @@ function InsightFeed({ insights }: { insights: Insight[] }) {
           <p className="text-sm text-muted-foreground">No insights yet. Add a data source to begin.</p>
         ) : (
           <div className="space-y-2">
-            {insights.map((insight) => (
-              <div key={insight.id} className="rounded-lg border p-3">
+            {insights.map(insight => (
+              <div key={insight.id} className="rounded-lg border border-border p-3">
                 <div className="flex items-start gap-2">
                   <span className="text-base">{TYPE_ICONS[insight.type] ?? '💡'}</span>
                   <div>
@@ -178,71 +82,152 @@ function InsightFeed({ insights }: { insights: Insight[] }) {
   )
 }
 
+// ---------------------------------------------------------------------------
+// Source selector
+// ---------------------------------------------------------------------------
+
+function SourceSelector({ sources, activeId, onSelect }: {
+  sources: Source[]
+  activeId: string | null
+  onSelect: (id: string) => void
+}) {
+  if (sources.length === 0) return null
+  return (
+    <Select value={activeId ?? ''} onValueChange={onSelect}>
+      <SelectTrigger className="w-56">
+        <SelectValue placeholder="Select a source…" />
+      </SelectTrigger>
+      <SelectContent>
+        {sources.map(s => {
+          const unavailable = !s.is_active || s.status === 'disconnected'
+          return (
+            <SelectItem key={s.id} value={s.id} className={unavailable ? 'opacity-60' : ''}>
+              <span className={unavailable ? 'line-through' : ''}>{s.name}</span>
+              {unavailable && (
+                <Badge variant="muted" className="ml-2 text-[10px] py-0">Unavailable</Badge>
+              )}
+            </SelectItem>
+          )
+        })}
+      </SelectContent>
+    </Select>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Empty states
+// ---------------------------------------------------------------------------
+
+function SourceUnavailableBanner() {
+  return (
+    <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+      This source is no longer available. Please select a different source from the dropdown above.
+    </div>
+  )
+}
+
+function NoSourceEmptyState({ isAdmin }: { isAdmin: boolean }) {
+  return (
+    <div className="rounded-lg border border-border p-6 text-center text-sm text-muted-foreground">
+      {isAdmin
+        ? 'Add a data source to get started.'
+        : 'Ask your Admin to add a data source.'}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard page
+// ---------------------------------------------------------------------------
+
 export default function DashboardPage() {
-  const [layout, setLayout] = useState<Layout[]>(DEFAULT_LAYOUT)
-  const [selectedSource, setSelectedSource] = useState<string | null>(null)
+  const { user } = useAuthStore()
+  const {
+    layout, widgetState, selectedSourceId, isLoaded,
+    fetchLayout, saveLayout, setSelectedSource, setWidgetState,
+  } = useDashboardStore()
+
+  useEffect(() => {
+    if (!isLoaded) fetchLayout()
+  }, [isLoaded, fetchLayout])
 
   const { data: sources = [] } = useQuery<Source[]>({
     queryKey: ['sources'],
-    queryFn: async () => (await api.get('/sources')).data,
+    queryFn: () => api.get('/sources').then(r => r.data),
   })
 
-  const activeSource = selectedSource ?? sources[0]?.id ?? null
+  // Restore last-selected source from user preferences or fall back to first active
+  const activeSource = (() => {
+    if (selectedSourceId) return selectedSourceId
+    const src = sources.find(s => s.is_active)
+    return src?.id ?? null
+  })()
+
+  const activeSourceObj = sources.find(s => s.id === activeSource)
+  const isSourceUnavailable = activeSourceObj
+    ? (!activeSourceObj.is_active || activeSourceObj.status === 'disconnected')
+    : false
+  const noSources = sources.length === 0
 
   const { data: insights = [] } = useQuery<Insight[]>({
     queryKey: ['insights', activeSource],
-    queryFn: async () => (await api.get(`/insights/${activeSource}`)).data,
-    enabled: !!activeSource,
+    queryFn: () => api.get(`/insights/${activeSource}`).then(r => r.data),
+    enabled: !!activeSource && !isSourceUnavailable,
     refetchInterval: 30_000,
   })
 
-  const { data: profile } = useQuery<Profile>({
-    queryKey: ['profile', activeSource],
-    queryFn: async () => (await api.get(`/profiles/${activeSource}`)).data,
-    enabled: !!activeSource,
+  const handleLayoutChange = useCallback(
+    (newLayout: Layout[]) => saveLayout(newLayout, widgetState),
+    [widgetState, saveLayout],
+  )
+
+  const cardProps = (widgetId: string) => ({
+    sourceId: activeSource,
+    widgetState: widgetState[widgetId],
+    onWidgetStateChange: (key: any, value: string) => setWidgetState(widgetId, key, value),
+    isSourceUnavailable,
   })
 
-  const sourceName = sources.find((s) => s.id === activeSource)?.name ?? 'No source'
-  const handleLayoutChange = useCallback((newLayout: Layout[]) => setLayout(newLayout), [])
-
   const WIDGET_MAP: Record<string, React.ReactNode> = {
-    kpi:      <KPICard profile={profile ?? null} sourceName={sourceName} />,
-    trend:    <TrendWidget insights={insights} />,
-    anomaly:  <AnomalyWidget insights={insights} />,
-    forecast: <ForecastWidget insights={insights} />,
-    profile:  <ProfileSummaryWidget profile={profile ?? null} />,
-    insights: <InsightFeed insights={insights} />,
+    data_profile:      <DataProfileCard {...cardProps('data_profile')} />,
+    profile_details:   <ProfileDetailsCard {...cardProps('profile_details')} />,
+    descriptive_stats: <DescriptiveStatsCard {...cardProps('descriptive_stats')} />,
+    trend_analysis:    <TrendAnalysisCard {...cardProps('trend_analysis')} />,
+    anomaly_detection: <AnomalyDetectionCard {...cardProps('anomaly_detection')} />,
+    forecast:          <ForecastWidget insights={insights} />,
+    insights:          <InsightFeed insights={insights} />,
   }
 
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-3xl font-bold">Dashboard</h1>
-        {sources.length > 0 && (
-          <select
-            className="rounded-md border bg-background px-3 py-1.5 text-sm"
-            value={activeSource ?? ''}
-            onChange={(e) => setSelectedSource(e.target.value)}
-          >
-            {sources.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-        )}
+        <SourceSelector
+          sources={sources}
+          activeId={activeSource}
+          onSelect={setSelectedSource}
+        />
       </div>
 
-      <ResponsiveGrid
-        layout={layout}
-        cols={12}
-        rowHeight={80}
-        onLayoutChange={handleLayoutChange}
-        isDraggable
-        isResizable
-      >
-        {layout.map((item) => (
-          <div key={item.i}>
-            {WIDGET_MAP[item.i] ?? null}
-          </div>
-        ))}
-      </ResponsiveGrid>
+      {noSources && <NoSourceEmptyState isAdmin={user?.role === 'admin'} />}
+      {isSourceUnavailable && !noSources && <SourceUnavailableBanner />}
+
+      {isLoaded && (
+        <ResponsiveGrid
+          layout={layout}
+          cols={12}
+          rowHeight={80}
+          onLayoutChange={handleLayoutChange}
+          isDraggable
+          isResizable
+        >
+          {layout.map(item => (
+            <div key={item.i}>
+              {WIDGET_MAP[item.i] ?? null}
+            </div>
+          ))}
+        </ResponsiveGrid>
+      )}
     </div>
   )
 }

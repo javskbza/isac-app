@@ -26,7 +26,8 @@ class AgentState(TypedDict, total=False):
     forecasts: list[dict]
 
     # Anomaly output
-    anomalies: list[dict]
+    anomalies: list[dict]        # Isolation Forest results (v1)
+    zscore_anomalies: list[dict] # Z-score results per column (v2, powers Card #5)
 
     # Pattern output
     patterns: list[dict]

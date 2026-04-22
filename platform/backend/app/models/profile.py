@@ -1,8 +1,9 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import JSON, DateTime, ForeignKey
+from typing import Optional
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from app.models.base import Base
 
 
@@ -16,6 +17,9 @@ class Profile(Base):
     statistics: Mapped[dict] = mapped_column(JSON, default={})
     null_rates: Mapped[dict] = mapped_column(JSON, default={})
     distributions: Mapped[dict] = mapped_column(JSON, default={})
+    total_rows: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    total_columns: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    zscore_anomalies: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True, default=list)
     profiled_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     data_source: Mapped["DataSource"] = relationship(back_populates="profiles")

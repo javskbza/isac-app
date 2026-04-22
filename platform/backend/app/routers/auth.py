@@ -7,7 +7,7 @@ from passlib.context import CryptContext
 
 from app.auth.jwt import create_access_token
 from app.database import get_db
-from app.models.user import User, UserRole
+from app.models.user import User, UserRole, UserStatus
 
 router = APIRouter(tags=["auth"])
 
@@ -32,9 +32,18 @@ class TokenResponse(BaseModel):
     user: dict
 
 
+def _user_dict(user: User) -> dict:
+    return {
+        "id": str(user.id),
+        "email": user.email,
+        "role": user.role.value,
+        "full_name": user.full_name,
+        "theme_preference": user.theme_preference.value,
+    }
+
+
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
-    # Check duplicate
     result = await db.execute(select(User).where(User.email == body.email))
     if result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -56,10 +65,7 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     token = create_access_token(
         {"sub": str(user.id), "email": user.email, "role": user.role.value}
     )
-    return TokenResponse(
-        access_token=token,
-        user={"id": str(user.id), "email": user.email, "role": user.role.value, "full_name": user.full_name},
-    )
+    return TokenResponse(access_token=token, user=_user_dict(user))
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -70,13 +76,10 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
     if not user or not pwd_context.verify(body.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    if not user.is_active:
+    if user.status != UserStatus.active:
         raise HTTPException(status_code=403, detail="Account is deactivated")
 
     token = create_access_token(
         {"sub": str(user.id), "email": user.email, "role": user.role.value}
     )
-    return TokenResponse(
-        access_token=token,
-        user={"id": str(user.id), "email": user.email, "role": user.role.value, "full_name": user.full_name},
-    )
+    return TokenResponse(access_token=token, user=_user_dict(user))

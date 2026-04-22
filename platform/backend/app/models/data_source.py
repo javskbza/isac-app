@@ -16,6 +16,9 @@ class SourceStatus(str, enum.Enum):
     pending = "pending"
     active = "active"
     error = "error"
+    degraded = "degraded"
+    paused = "paused"
+    disconnected = "disconnected"
 
 
 class DataSource(Base):
@@ -34,3 +37,5 @@ class DataSource(Base):
     profiles: Mapped[list["Profile"]] = relationship(back_populates="data_source")
     insights: Mapped[list["Insight"]] = relationship(back_populates="data_source")
     agent_logs: Mapped[list["AgentLog"]] = relationship(back_populates="data_source")
+    schedule: Mapped[list["SourceSchedule"]] = relationship(back_populates="data_source")
+    poll_logs: Mapped[list["SourcePollLog"]] = relationship(back_populates="data_source")

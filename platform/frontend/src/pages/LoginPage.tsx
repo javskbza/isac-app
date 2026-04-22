@@ -6,11 +6,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { useAuthStore } from '@/store/authStore'
+import { useThemeStore } from '@/store/themeStore'
 import api from '@/lib/api'
 
 function LoginForm() {
   const navigate = useNavigate()
   const { login } = useAuthStore()
+  const { init: initTheme } = useThemeStore()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -22,6 +24,7 @@ function LoginForm() {
     },
     onSuccess: (data) => {
       login(data.access_token, data.user)
+      initTheme(data.user.theme_preference ?? 'light')
       navigate('/dashboard', { replace: true })
     },
     onError: (err: any) => {

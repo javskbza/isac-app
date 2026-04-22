@@ -1,24 +1,25 @@
 import { create } from 'zustand'
 
-interface User {
+export interface AuthUser {
   id: string
   email: string
   full_name?: string
   role: 'admin' | 'viewer'
+  theme_preference: 'light' | 'dark' | 'system'
 }
 
 interface AuthState {
   token: string | null
-  user: User | null
-  login: (token: string, user: User) => void
+  user: AuthUser | null
+  login: (token: string, user: AuthUser) => void
   logout: () => void
 }
 
-const SESSION_KEY = 'auth'
+const STORAGE_KEY = 'auth'
 
 function loadSession(): Pick<AuthState, 'token' | 'user'> {
   try {
-    const raw = sessionStorage.getItem(SESSION_KEY)
+    const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) return JSON.parse(raw)
   } catch {}
   return { token: null, user: null }
@@ -27,11 +28,11 @@ function loadSession(): Pick<AuthState, 'token' | 'user'> {
 export const useAuthStore = create<AuthState>((set) => ({
   ...loadSession(),
   login: (token, user) => {
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ token, user }))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ token, user }))
     set({ token, user })
   },
   logout: () => {
-    sessionStorage.removeItem(SESSION_KEY)
+    localStorage.removeItem(STORAGE_KEY)
     set({ token: null, user: null })
   },
 }))
